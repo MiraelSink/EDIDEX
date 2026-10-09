@@ -1,0 +1,5 @@
+# PySide6-Essentials ships QtCore/QtGui/QtWidgets, which is all this app uses.
+# Preferring it over the full PySide6 meta-package avoids pulling WebEngine and
+# Pdf (~120 MB of unused binaries) into the frozen executable.
+PySide6-Essentials>=6.5
+PyInstaller>=5.13

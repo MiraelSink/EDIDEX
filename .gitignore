@@ -1,0 +1,21 @@
+# Build outputs
+build/
+dist/*.exe
+dist/Monitor_Detection
+dist/Monitor_Detection.spec
+
+# Virtualenv (recreated by linux/setup.sh or windows/setup.bat)
+.venv/
+.local-libs/
+
+# Logs written by the setup and build scripts
+linux/*.log
+windows/*.log
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Windows-specific cruft
+Thumbs.db
+desktop.ini
