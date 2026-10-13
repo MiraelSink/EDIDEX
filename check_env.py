@@ -40,7 +40,7 @@ def _pip_version() -> str:
 
 def main() -> int:
     problems: list[str] = []
-    print("Verification de l'environnement - Monitor_Detection")
+    print("Verification de l'environnement - EDIMETER")
     print("-" * 52)
 
     version = ".".join(str(n) for n in sys.version_info[:3])

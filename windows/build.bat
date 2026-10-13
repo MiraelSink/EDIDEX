@@ -1,8 +1,8 @@
 @echo off
 REM ============================================================================
-REM  Monitor_Detection - compilation de l'executable Windows
+REM  EDIMETER - compilation de l'executable Windows
 REM
-REM  Produit : dist\Monitor_Detection.exe  (~55 Mo, autonome)
+REM  Produit : dist\EDIMETER.exe  (~55 Mo, autonome)
 REM
 REM  PyInstaller ne compile PAS vers Windows depuis Linux ou macOS : ce
 REM  script doit imperativement etre execute sur Windows.
@@ -21,11 +21,11 @@ popd
 
 set "LOG=%ROOT%\windows\build.log"
 set "VPY=%ROOT%\.venv\Scripts\python.exe"
-set "NAME=Monitor_Detection"
+set "NAME=EDIMETER"
 set "CLEAN=0"
 if /i "%~1"=="--clean" set "CLEAN=1"
 
-> "%LOG%" echo Monitor_Detection - build %DATE% %TIME%
+> "%LOG%" echo EDIMETER - build %DATE% %TIME%
 
 echo %ROOT% | findstr /b /c:"\\" >nul
 if not errorlevel 1 goto :unc_path
@@ -172,7 +172,7 @@ echo.
 echo     cmd.exe ne peut pas se placer dans un chemin UNC, et PyInstaller
 echo     echoue de facon peu fiable sur un systeme de fichiers WSL.
 echo     Compilez depuis une copie sur le disque Windows, par exemple :
-echo         C:\Users\%USERNAME%\Monitor_Detection
+echo         C:\Users\%USERNAME%\EDIMETER
 echo.
 pause
 endlocal

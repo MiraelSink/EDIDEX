@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Monitor_Detection - compilation de l'executable Linux
+#  EDIMETER - compilation de l'executable Linux
 #
-#  Produit : dist/Monitor_Detection  (~53 Mo, autonome)
+#  Produit : dist/EDIMETER  (~53 Mo, autonome)
 #
 #  Usage :
 #     linux/build.sh            compile et conserve .venv
@@ -19,7 +19,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 VPY="$ROOT/.venv/bin/python"
-NAME="Monitor_Detection"
+NAME="EDIMETER"
 LOG="$ROOT/linux/build.log"
 CLEAN=0
 [ "${1:-}" = "--clean" ] && CLEAN=1

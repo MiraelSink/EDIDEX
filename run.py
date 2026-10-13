@@ -1,4 +1,4 @@
-"""Cross-platform entry point for Monitor_Detection.
+"""Cross-platform entry point for EDIMETER.
 
 Kept separate from the package so that PyInstaller can be pointed at a single
 script and so the package stays importable for tests.
@@ -63,7 +63,7 @@ def _preflight() -> list[str]:
             packages.append(pkg)
 
     sys.stderr.write(
-        "\nMonitor_Detection ne peut pas demarrer : bibliotheques systeme "
+        "\nEDIMETER ne peut pas demarrer : bibliotheques systeme "
         "manquantes\n%s\n\n"
         "Installez-les avec :\n  sudo apt install %s\n\n"
         "Ce n'est pas un probleme de l'application : Qt a besoin de ces "

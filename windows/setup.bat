@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Monitor_Detection - installation de l'environnement de developpement
+REM  EDIMETER - installation de l'environnement de developpement
 REM
 REM  Installe PySide6 et PyInstaller dans un virtualenv local (.\..\.venv).
 REM  Aucun droit administrateur n'est requis : rien n'est ecrit dans
@@ -22,7 +22,7 @@ set "LOG=%ROOT%\windows\setup.log"
 set "VENV=%ROOT%\.venv"
 
 REM ---- Journalisation -------------------------------------------------------
-> "%LOG%" echo Monitor_Detection - setup %DATE% %TIME%
+> "%LOG%" echo EDIMETER - setup %DATE% %TIME%
 echo Journal : %LOG%
 
 REM ---- Verification du type de chemin --------------------------------------
@@ -100,10 +100,10 @@ echo     cmd.exe ne peut pas utiliser un chemin UNC comme repertoire
 echo     courant, et le systeme de fichiers WSL (\\wsl.localhost\...)
 echo     est concerne. Compiler et installer depuis la est peu fiable.
 echo.
-echo     Solution : copiez le dossier Monitor_Detection sur le disque Windows,
+echo     Solution : copiez le dossier EDIMETER sur le disque Windows,
 echo     par exemple :
 echo.
-echo         C:\Users\%USERNAME%\Monitor_Detection
+echo         C:\Users\%USERNAME%\EDIMETER
 echo.
 echo     Puis relancez setup.bat depuis ce nouvel emplacement.
 echo.

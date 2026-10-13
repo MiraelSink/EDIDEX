@@ -854,3 +854,193 @@ class TestPlaceholderRejection(unittest.TestCase):
 
     def test_real_numeric_serial_accepted(self):
         self.assertFalse(EdidInfo._numeric_is_placeholder(0x1A2B3C4D))
+
+
+# A second real EDID: an LG that was never attached to this machine. The
+# registry kept its blob after the monitor was moved away, and the resolution
+# pairing happily lent its data to a live Dahua.
+REAL_LG_21 = (
+    "00ffffffffffff001e6db95a892404000c1c0104a5301b78e23135a5554ea1260c5054a"
+    "54b00714f81809500b300a9c0810081c09040023a801871382d40582c4500e00e1100001"
+    "e000000fd00384b1e530f000a202020202020000000fc004c472046554c4c2048440a2020"
+    "000000ff003831324e545451375a3439370a0095"
+)
+# The 27-inch Dahua that was actually attached during the reported failure.
+REAL_DAHUA_27 = (
+    "00ffffffffffff001109fbff0000000025210103803c2278ae1585ae4f44a124145054a"
+    "54b00714f81c0814081800101a9c0b300d1c0023a801871382d40582c4500e00e1100001"
+    "e000000fd003cb436c93c000a202020202020000000fc004c4d32372d45323330430a2020"
+    "00000000ff0030303030303030303030303030015f"
+)
+
+
+class TestStaleEdidFiltering(unittest.TestCase):
+    """Registry leftovers must never be paired with a live screen.
+
+    The registry accumulates one entry per monitor the machine has ever seen.
+    A display moved to another PC leaves its EDID behind, and because it matches
+    a current screen perfectly on paper, the resolution pairing will happily
+    assign it there - handing that screen another monitor's brand, size and
+    serial.
+    """
+
+    def setUp(self):
+        from screeninfo_gui import monitors_windows
+        self.mw = monitors_windows
+        self.dahua = bytes.fromhex(REAL_DAHUA_27)
+        self.lg = bytes.fromhex(REAL_LG_21)
+
+    def _registry(self):
+        return [
+            {"path": r"SYSTEM\CurrentControlSet\Enum\DISPLAY\GSM5AB9\4&c&0&0000",
+             "edid": self.lg},
+            {"path": r"SYSTEM\CurrentControlSet\Enum\DISPLAY\DHIFFFB\4&a&0&0000",
+             "edid": self.dahua},
+            {"path": r"SYSTEM\CurrentControlSet\Enum\DISPLAY\DHIFFFB\4&b&0&0001",
+             "edid": self.dahua},
+        ]
+
+    def _displays(self):
+        return [
+            {"device": r"\\.\DISPLAY1", "width": 1920, "height": 1080,
+             "left": 0, "top": 0, "is_primary": True},
+            {"device": r"\\.\DISPLAY2", "width": 1920, "height": 1080,
+             "left": 1920, "top": 0, "is_primary": False},
+        ]
+
+    def test_model_code_extraction(self):
+        self.assertEqual(
+            self.mw.model_code_from_registry_path(
+                r"SYSTEM\CurrentControlSet\Enum\DISPLAY\DHIFFFB\4&a&0&0000"),
+            "DHIFFFB")
+
+    def test_display_folder_is_not_mistaken_for_a_model_code(self):
+        """'DISPLAY' is seven characters too; it must never match."""
+        self.assertEqual(
+            self.mw.model_code_from_registry_path(
+                r"SYSTEM\CurrentControlSet\Enum\DISPLAY"), "")
+
+    def test_device_id_extraction(self):
+        self.assertEqual(
+            self.mw.model_code_from_device_id(r"MONITOR\DHIFFFB\{4d36e96c-0}"),
+            "DHIFFFB")
+        self.assertEqual(self.mw.model_code_from_device_id(""), "")
+        self.assertEqual(self.mw.model_code_from_device_id(r"NON\SHAPE"), "")
+
+    def test_stale_edid_is_discarded(self):
+        kept, dropped = self.mw.filter_stale_edids(self._registry(),
+                                                  {"DHIFFFB"})
+        self.assertEqual(len(kept), 2)
+        self.assertEqual(dropped, ["GSM5AB9"])
+        self.assertTrue(all(e["edid"] == self.dahua for e in kept))
+
+    def test_no_filter_when_enumeration_fails(self):
+        """An empty live set must leave today's behaviour untouched."""
+        kept, dropped = self.mw.filter_stale_edids(self._registry(), set())
+        self.assertEqual(len(kept), 3)
+        self.assertEqual(dropped, [])
+
+    def test_user_case_both_screens_read_as_dahua(self):
+        """The exact reported bug: a stale LG was shown as the second screen."""
+        kept, _ = self.mw.filter_stale_edids(self._registry(), {"DHIFFFB"})
+        monitors, _ = self.mw._match_displays_to_edids(self._displays(), kept)
+        self.assertEqual(len(monitors), 2)
+        for mon in monitors:
+            self.assertEqual(mon.brand, "Dahua")
+            self.assertEqual(mon.display_name, "LM27-E230C")
+            self.assertAlmostEqual(mon.diagonal_in, 27.2, delta=0.1)
+        self.assertNotIn("Goldstar", {m.brand for m in monitors})
+        self.assertNotIn("LG", {m.brand for m in monitors})
+
+    def test_registry_key_case_does_not_matter(self):
+        kept, _ = self.mw.filter_stale_edids(
+            [{"path": r"SYSTEM\CurrentControlSet\Enum\DISPLAY\dhifffb\4&a&0&0000",
+              "edid": self.dahua}],
+            {"DHIFFFB"})
+        self.assertEqual(len(kept), 1)
+
+    def test_entry_without_a_path_is_kept(self):
+        """Never discard an entry we cannot classify; that would lose data."""
+        kept, dropped = self.mw.filter_stale_edids(
+            [{"path": "", "edid": self.dahua}], {"DHIFFFB"})
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(dropped, [])
+
+    def test_lg_brand_resolves_to_lg_not_goldstar(self):
+        from screeninfo_gui.edid import parse_edid
+        info = parse_edid(self.lg)
+        self.assertEqual(info.vendor_id, "GSM")
+        self.assertEqual(info.brand, "LG")
+        self.assertEqual(info.brand_from_name, "LG")
+        self.assertEqual(info.display_name, "LG FULL HD")
+
+
+class TestLayoutIsNotClipped(unittest.TestCase):
+    """QScrollArea pins its widget to the viewport and squeezes the layout,
+    which silently clipped the warning text. The warning is the one thing the
+    user needs to read, so its height has to be honoured."""
+
+    @classmethod
+    def setUpClass(cls):
+        import os
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        try:
+            from PySide6.QtWidgets import QApplication
+        except ImportError:
+            raise unittest.SkipTest("PySide6 absent")
+        cls.app = QApplication.instance() or QApplication([])
+
+    def _window(self, warnings, monitors=2):
+        from screeninfo_gui.app import MainWindow
+        from screeninfo_gui.model import DetectionResult, MonitorInfo
+        from screeninfo_gui.theme import QSS
+        self.app.setStyleSheet(QSS)
+        win = MainWindow()
+        win.show()
+        rows = [MonitorInfo(index=i, brand="Dahua", model="LM27-E230C",
+                            width_in=23.6, height_in=13.4, size_source="EDID",
+                            display_name="LM27-E230C", resolution="1920 x 1080")
+                for i in range(monitors)]
+        win._on_detected(DetectionResult(monitors=rows, method="x",
+                                         warnings=warnings))
+        self.app.processEvents()
+        return win
+
+    def _cards(self, win):
+        return [win.body_layout.itemAt(i).widget()
+                for i in range(win.body_layout.count())
+                if win.body_layout.itemAt(i).widget() is not None]
+
+    def test_no_card_is_shorter_than_it_needs(self):
+        long_warning = [
+            "1 EDID périmé écarté : GSM5AB9. Ces écrans ne sont plus branchés.",
+            "Appairement approximatif pour 1 écran identique : marque, taille "
+            "et numéro de série peuvent être permutés.",
+        ]
+        win = self._window(long_warning)
+        try:
+            for card in self._cards(win):
+                self.assertGreaterEqual(card.height(), card.sizeHint().height(),
+                                        "carte tronquée")
+        finally:
+            win.close()
+
+    def test_body_grows_beyond_the_viewport(self):
+        win = self._window(["avertissement"], monitors=4)
+        try:
+            self.assertGreaterEqual(win.body.height(),
+                                    win.body.minimumSizeHint().height())
+        finally:
+            win.close()
+
+    def test_warning_card_appears_before_the_screens(self):
+        """The warning explains a wrong value, so it must be seen first."""
+        from screeninfo_gui.app import MonitorCard
+        win = self._window(["1 EDID périmé écarté : GSM5AB9."], monitors=1)
+        try:
+            cards = self._cards(win)
+            self.assertEqual(len(cards), 2)
+            self.assertNotIsInstance(cards[0], MonitorCard)
+            self.assertIsInstance(cards[1], MonitorCard)
+        finally:
+            win.close()

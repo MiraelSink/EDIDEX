@@ -1,8 +1,8 @@
 # Build outputs
 build/
 dist/*.exe
-dist/Monitor_Detection
-dist/Monitor_Detection.spec
+dist/EDIMETER
+dist/EDIMETER.spec
 
 # Virtualenv (recreated by linux/setup.sh or windows/setup.bat)
 .venv/

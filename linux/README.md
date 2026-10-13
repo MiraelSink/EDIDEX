@@ -1,4 +1,4 @@
-# Monitor_Detection — Linux
+# EDIMETER — Linux
 
 Installation et compilation. Voir `linux/README.md` pour le détail.
 

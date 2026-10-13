@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Monitor_Detection - installation de l'environnement de developpement
+#  EDIMETER - installation de l'environnement de developpement
 #
 #  Installe PySide6 et PyInstaller dans un virtualenv local (../.venv).
 #  Aucun droit administrateur n'est requis : rien n'est écrit hors du dossier

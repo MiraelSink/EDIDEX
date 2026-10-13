@@ -1,8 +1,11 @@
-# Monitor_Detection
+# EDIMETER — **E**D**I**D **METER**
 
 Application portable affichant, en un clic, la **taille en pouces**, la
 **marque** et le **numéro de série** de chaque écran. Thème vert, noir et
 blanc, blanc dominant.
+
+*Le nom décrit la méthode : un EDID est le bloc de 128 octets que chaque écran
+publie, et l'application en tire des mesures. Elle mesure, elle ne devine pas.*
 
 Fonctionne sous Linux et sous Windows. L'exécutable produit est autonome : ni
 Python, ni installation, ni connexion requise sur la machine cible.
@@ -20,7 +23,7 @@ Guides détaillés : [`linux/README.md`](linux/README.md) et
 ## Organisation
 
 ```
-Monitor_Detection/
+EDIMETER/
 ├── screeninfo_gui/       code partagé, un seul exemplaire
 │   ├── edid.py           analyseur EDID (128 octets)
 │   ├── model.py          MonitorInfo, calcul de diagonale

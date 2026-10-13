@@ -39,7 +39,7 @@ VENDORS = {
     "CPT": "Chunghwa Picture Tube", "CPQ": "Compaq",
     "DHI": "Dahua", "DEL": "Dell", "DGC": "Digi-Key",
     "ENC": "Eizo", "EIZ": "Eizo",
-    "FUS": "Fujitsu Siemens", "GSM": "Goldstar", "HPN": "HP",
+    "FUS": "Fujitsu Siemens", "GSM": "LG", "HPN": "HP",
     "HSD": "HannStar Display", "HWP": "Hewlett Packard", "IBM": "IBM",
     "INL": "InnoLux Display", "IVM": "Iiyama", "LEN": "Lenovo",
     "LGD": "LG Display", "LPL": "LG Philips", "MEI": "Panasonic",
@@ -237,7 +237,14 @@ class EdidInfo:
             return ""
         for known in KNOWN_BRANDS:
             token = re.sub(r"[^A-Z]", "", known.upper())
-            if word.startswith(token) and len(token) >= 3:
+            if not token:
+                continue
+            # Exact word match is safe at any length ("LG", "HP"); a prefix
+            # match needs at least three letters, otherwise "AS" would match
+            # "ASUS" and "NE" would match "NEC".
+            if word == token:
+                return known
+            if len(token) >= 3 and word.startswith(token):
                 return known
         return ""
 

@@ -1,4 +1,4 @@
-"""Monitor_Detection - PySide6 GUI showing each monitor's diagonal in inches,
+"""EDIMETER - PySide6 GUI showing each monitor's diagonal in inches,
 brand and serial number behind a single button press.
 """
 
@@ -17,7 +17,7 @@ from . import screens_from_qt
 from .model import UNAVAILABLE, DetectionResult, MonitorInfo
 from .theme import QSS
 
-APP_NAME = "Monitor_Detection"
+APP_NAME = "EDIMETER"
 
 
 def _detect_platform():
@@ -224,7 +224,8 @@ class MainWindow(QMainWindow):
 
         titles = QVBoxLayout()
         titles.setSpacing(2)
-        title = QLabel(APP_NAME.replace("_", " "))
+        # Already an acronym: no underscores to expand.
+        title = QLabel(APP_NAME)
         title.setObjectName("Title")
         self.subtitle = QLabel("Taille, marque et numero de serie de vos ecrans")
         self.subtitle.setObjectName("Subtitle")
@@ -259,9 +260,11 @@ class MainWindow(QMainWindow):
         self.body_layout = QVBoxLayout(self.body)
         self.body_layout.setContentsMargins(24, 20, 24, 20)
         self.body_layout.setSpacing(14)
-        # QScrollArea centres a widget shorter than its viewport; pinning the
-        # layout to the top keeps cards directly under the header.
-        self.body_layout.setAlignment(Qt.AlignTop)
+        # A trailing stretch keeps every card at its natural size instead of
+        # being squeezed when several monitors do not fit on screen. Using
+        # AlignTop here instead would break scrolling, because the cards would
+        # still be compressed rather than allowed to overflow.
+        self.body_layout.addStretch(1)
         self.scroll.setWidget(self.body)
         root_layout.addWidget(self.scroll, 1)
 
@@ -305,10 +308,28 @@ class MainWindow(QMainWindow):
         layout.addWidget(heading)
         layout.addWidget(body)
         layout.addStretch(1)
-        # Without this the card stretches to the height of the scroll area and
-        # the message drifts to the bottom of a mostly empty box.
-        card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        # Minimum, not Maximum: a Maximum vertical policy hands the widget only
+        # minimumSizeHint(), which ignores the height needed for wrapped text,
+        # and the warning gets clipped. Minimum still lets the card grow but
+        # not stretch, and the layout is top-aligned.
+        card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
         self.body_layout.addWidget(card)
+
+    def _sync_scroll_height(self) -> None:
+        """Make the scroll area actually scroll.
+
+        With widgetResizable enabled, QScrollArea pins the inner widget to the
+        viewport height and then compresses the layout, which clips the cards
+        and swallows their text. Pinning an explicit minimum height restores
+        scrolling. Recomputed on resize because word wrapping changes how many
+        lines each warning needs.
+        """
+        self.body_layout.activate()
+        self.body.setMinimumHeight(self.body_layout.sizeHint().height())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._sync_scroll_height()
 
     def eventFilter(self, watched, event):
         """Click handling for the styled QLabels used as buttons.
@@ -451,6 +472,11 @@ class MainWindow(QMainWindow):
                 cursor_monitor = mon
                 break
 
+        # Warnings come first: a pairing or a stale-EDID warning is the reason a
+        # value looks wrong, so burying it under the screens defeats the point.
+        if result.warnings:
+            self._add_placeholder("Remarque", "\n\n".join(result.warnings))
+
         for mon in result.monitors:
             card = MonitorCard(mon, cursor_monitor)
             self._register_buttons(card)
@@ -458,6 +484,8 @@ class MainWindow(QMainWindow):
 
         # "Tout copier" only makes sense once something has been detected.
         self.copy_all.setVisible(len(result.monitors) > 0)
+
+        self._sync_scroll_height()
 
         self.status.setText(
             "%d ecran(s) detecte(s) via %s"
@@ -468,7 +496,6 @@ class MainWindow(QMainWindow):
         # missing value the user is looking straight at, so show them inline.
         if result.warnings:
             self.status.setToolTip("\n\n".join(result.warnings))
-            self._add_placeholder("Remarque", "\n\n".join(result.warnings))
 
 
 def main(argv=None) -> int:

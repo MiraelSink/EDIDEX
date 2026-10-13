@@ -35,6 +35,116 @@ else:  # allows the module to be imported for tests on Linux
 _ENUM_REGISTRY_KEY = r"SYSTEM\CurrentControlSet\Enum\DISPLAY"
 
 
+class DISPLAY_DEVICE(ctypes.Structure):
+    """Only the prefix is used; DeviceID carries the monitor's model code."""
+
+    _fields_ = [
+        ("cb", wintypes.DWORD),
+        ("DeviceName", ctypes.c_wchar * 32),
+        ("DeviceString", ctypes.c_wchar * 128),
+        ("StateFlags", wintypes.DWORD),
+        ("DeviceID", ctypes.c_wchar * 128),
+        ("DeviceKey", ctypes.c_wchar * 128),
+    ]
+
+
+def _looks_like_model_code(part: str) -> bool:
+    """A model code is three letters followed by four hex digits."""
+    part = part.strip()
+    return (len(part) == 7 and part[:3].isalpha()
+            and all(c in "0123456789ABCDEF" for c in part[3:].upper()))
+
+
+def model_code_from_device_id(device_id: str) -> str:
+    """Extract the model code from ``MONITOR\\<MFR><MODEL>\\{...}``.
+
+    Returns an empty string when the identifier does not have that shape.
+    Pure string handling, so it is testable without Windows.
+    """
+    if not device_id:
+        return ""
+    for part in device_id.replace("/", "\\").split("\\"):
+        if _looks_like_model_code(part):
+            return part.strip().upper()
+    return ""
+
+
+def model_code_from_registry_path(path: str) -> str:
+    """Extract the model code from an Enum\\DISPLAY registry path.
+
+    Paths look like ``SYSTEM\\...\\Enum\\DISPLAY\\DHIFFFB\\4&1a2b&0&0000``.
+    The segment after ``DISPLAY`` is the model code; the literal ``DISPLAY``
+    itself must never be mistaken for one.
+    """
+    if not path:
+        return ""
+    parts = [p.strip() for p in path.replace("/", "\\").split("\\")]
+    for i, part in enumerate(parts[:-1]):
+        if part.upper() == "DISPLAY" and _looks_like_model_code(parts[i + 1]):
+            return parts[i + 1].upper()
+    return ""
+
+
+def connected_model_codes() -> set[str]:
+    """Model codes of the monitors Windows currently has attached.
+
+    Only the DeviceID string is read: no registry access and no EDID fetch,
+    which keeps this path far away from the failure that broke an earlier
+    attempt. Returns an empty set if enumeration fails, in which case the
+    caller simply skips filtering.
+    """
+    if user32 is None:
+        return set()
+    codes: set[str] = set()
+    user32.EnumDisplayDevicesW.restype = wintypes.BOOL
+    user32.EnumDisplayDevicesW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, ctypes.POINTER(DISPLAY_DEVICE),
+        wintypes.DWORD,
+    ]
+    adapter = DISPLAY_DEVICE()
+    adapter.cb = ctypes.sizeof(DISPLAY_DEVICE)
+    adapter_index = 0
+    try:
+        while user32.EnumDisplayDevicesW(None, adapter_index,
+                                         ctypes.byref(adapter), 0):
+            monitor = DISPLAY_DEVICE()
+            monitor.cb = ctypes.sizeof(DISPLAY_DEVICE)
+            monitor_index = 0
+            while user32.EnumDisplayDevicesW(adapter.DeviceName, monitor_index,
+                                             ctypes.byref(monitor), 0):
+                code = model_code_from_device_id(monitor.DeviceID or "")
+                if code:
+                    codes.add(code)
+                monitor_index += 1
+            adapter_index += 1
+    except (OSError, AttributeError, ValueError):
+        return set()
+    return codes
+
+
+def filter_stale_edids(edids: list[dict], live_codes: set[str]) -> tuple[list[dict], list[str]]:
+    """Drop registry EDID entries that belong to monitors not attached now.
+
+    The registry keeps an entry for every monitor the machine has ever seen,
+    so a display moved to another PC leaves its blob behind. Those leftovers
+    match a live screen perfectly on paper and silently lend it the wrong
+    brand, size and serial. Filtering by the set of currently connected model
+    codes needs no pairing and no ordering assumption.
+
+    Returns the surviving entries and the model codes that were discarded.
+    """
+    if not live_codes:
+        return edids, []
+    kept, dropped = [], []
+    for entry in edids:
+        code = model_code_from_registry_path(entry.get("path", ""))
+        if not code or code in live_codes:
+            kept.append(entry)
+        else:
+            dropped.append(code)
+    return kept, sorted(set(dropped))
+
+
 class RECT(ctypes.Structure):
     _fields_ = [
         ("left", ctypes.c_long),
@@ -307,6 +417,24 @@ def detect(screens=None) -> DetectionResult:
 
     displays = _enum_displays()
     edids = _read_registry_edids()
+
+    # Drop the EDID of monitors that are no longer attached before anything
+    # tries to pair them with a live screen.
+    live_codes = connected_model_codes()
+    if live_codes and edids:
+        edids, stale = filter_stale_edids(edids, live_codes)
+        if stale:
+            result.warnings.append(
+                "%d EDID périmé(s) écarté(s) : %s. Ces écrans ne sont plus "
+                "branchés ; sans ce filtre leurs données auraient pu être "
+                "attribuées à un écran actuel."
+                % (len(stale), ", ".join(stale))
+            )
+    elif edids and not live_codes:
+        result.warnings.append(
+            "Impossible de lister les écrans connectés : le filtrage des "
+            "anciens écrans est désactivé, l'appairement peut être erroné."
+        )
 
     if edids and displays:
         result.monitors, ambiguous = _match_displays_to_edids(displays, edids)

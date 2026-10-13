@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  Monitor_Detection - lancement de l'application
+REM  EDIMETER - lancement de l'application
 REM
 REM  Utilise le virtualenv du projet (.\..\.venv). Si celui-ci est absent,
 REM  lancez d'abord windows\setup.bat.

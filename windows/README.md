@@ -1,4 +1,4 @@
-# Monitor_Detection sous Windows
+# EDIMETER sous Windows
 
 ## Prérequis : Python
 
@@ -17,7 +17,7 @@ fichiers WSL.
 Copiez le dossier sur le disque Windows, par exemple :
 
 ```
-C:\Users\<votre_nom>\Monitor_Detection
+C:\Users\<votre_nom>\EDIMETER
 ```
 
 ## Installation
@@ -25,7 +25,7 @@ C:\Users\<votre_nom>\Monitor_Detection
 Double-cliquez sur `windows\setup.bat`, ou dans une invite de commandes :
 
 ```bat
-cd C:\Users\<votre_nom>\Monitor_Detection
+cd C:\Users\<votre_nom>\EDIMETER
 windows\setup.bat
 ```
 
@@ -49,7 +49,7 @@ windows\build.bat
 windows\build.bat --clean
 ```
 
-Résultat : `dist\Monitor_Detection.exe`, environ 53 Mo, autonome.
+Résultat : `dist\EDIMETER.exe`, environ 53 Mo, autonome.
 
 **PyInstaller ne compile pas vers Windows depuis Linux ni macOS.** Ce script
 doit être exécuté sur Windows.

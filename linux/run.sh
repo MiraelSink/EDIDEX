@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Monitor_Detection - lancement de l'application
+#  EDIMETER - lancement de l'application
 #
 #  Utilise le virtualenv du projet. S'il est absent, lancez d'abord
 #  linux/setup.sh.
